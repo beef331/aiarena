@@ -15,7 +15,6 @@ else:
 
 --gc:arc # GC:arc is friendlier with crazy platforms.
 --exceptions:goto # Goto exceptions are friendlier with crazy platforms.
---define:noSignalHandler # Emscripten doesn't support signal handlers.
 --noMain:on
 let outputName = projectName() & ".wasm"
 # Pass this to Emscripten linker to generate html file scaffold for us.

@@ -1,5 +1,5 @@
 import wasmedge
-import std/[os, times]
+import std/[os, times, sequtils]
 
 type
   WasmEnv* = object
@@ -9,8 +9,15 @@ type
     executor: ExecutorContext
     path: string
     lastModified: Time
+  WasmProcDef* = object
+    name*: string
+    paramType*, retType*: seq[ValType]
+    hostProc*: HostProc[pointer]
 
-proc loadWasm*(path: string, headingProc, posProc, setTargetProc: HostProc): WasmEnv {.raises: [].} =
+proc wasmProcDef*(name: string, paramType, retType: openarray[ValType], hostProc: HostProc[pointer]): WasmProcDef =
+  WasmProcDef(name: name, paramType: paramType.toSeq, retType: retType.toSeq, hostProc: hostProc)
+
+proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raises: [].} =
   result.path = path
   try:
     result.lastModified = getLastModificationTime(path)
@@ -27,24 +34,24 @@ proc loadWasm*(path: string, headingProc, posProc, setTargetProc: HostProc): Was
     result.executor.registerImport(store, wasiModule)
 
     var myModule = ModuleContext.create("env")
-    var
-      headingTyp = FunctionType.create([], [valTypef32])
-      headingInst = headingTyp.createInst(headingProc)
-      posType = FunctionType.create([], [valTypef32, valTypef32, valTypef32])
-      posInst = posType.createInst(posProc)
-      setPosType = FunctionType.create([valTypef32, valTypef32], [])
-      setPosInst = setPosType.createInst(setTargetProc)
 
-    myModule.addFunction("getHeading", headingInst)
-    myModule.addFunction("getPos", posInst)
-    myModule.addFunction("setTarget", setPosInst)
+    for hostProc in hostProcs:
+      var
+        typ = FunctionType.create(hostProc.paramType, hostProc.retType)
+        inst = typ.createInst(hostProc.hostProc)
+      echo hostProc.name, " ", hostProc.paramType, " ", hostProc.retType
+      mymodule.addFunction(hostProc.name, inst)
+
     result.executor.registerImport(store, myModule)
     result.executor.instantiate(result.module, store, result.ast)
 
     result.updateFunc = result.module.findFunction("update")
     result.initFunc = result.module.findFunction("init")
-  except:
-    echo getCurrentExceptionMsg()
+  except WasmError as e:
+    echo e.msg
+  except OsError as e:
+    echo e.msg
 
 proc update*(wasmEnv: var WasmEnv, id: int32, dt: float32) =
-  wasmEnv.executor.invoke(wasmEnv.updateFunc, args = [wasmValue(id), wasmValue(dt)])
+  if cast[int](wasmEnv.updateFunc) != 0:
+    wasmEnv.executor.invoke(wasmEnv.updateFunc, args = [wasmValue(id), wasmValue(dt)])

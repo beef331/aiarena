@@ -3,13 +3,15 @@ import std/math
 const
   maxSpeed = 5f
   turnSpeed = 2f
-
+  timeBetweenShot = 0.3f
 type Fighter* = object
   pos: Vec3
   velocity: Vec3
   heading*: float32
   target*: Vec3
   team: int32
+  lastShotTime: float32
+
 
 import std/random
 proc randFighter*(teamId: int32): Fighter = Fighter(pos: vec3(rand(-15f..15f), 0, rand(-15f..15f)), heading: -Tau / 4, team: teamId)
@@ -32,7 +34,13 @@ proc update*(fighter: var Fighter, dt: float32) =
       fighter.heading -= dt * turnSpeed
     else:
       fighter.heading += dt * turnSpeed
+  fighter.lastShotTime -= dt
 
 proc getPos*(fighter: Fighter): Vec3 = fighter.pos
 
 proc getTarget*(fighter: Fighter): Vec3 = fighter.target
+
+proc canFire*(fighter: Fighter): bool = fighter.lastShotTime <= 0
+
+proc fire*(fighter: var Fighter) =
+  fighter.lastShotTime = timeBetweenShot

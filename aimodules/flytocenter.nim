@@ -7,11 +7,14 @@ type FighterData = ref object
 proc getHeading: float32 {.importc.}
 proc getPos: Vec3 {.importc.}
 proc setTarget(pos: Vec2) {.importc.}
+proc fire() {.importc.}
 
 var fighterData: array[10, (int32, FighterData)]
 
 proc update(id: int32, dt: float32) {.wasmexport.} =
   let id = int id
+  if id == 0:
+    fire()
   if fighterData[id][1].isNil:
     fighterData[id][1] = FighterData()
 

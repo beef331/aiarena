@@ -31,6 +31,7 @@ type
   Projectile = object
     id: int
     pos: Vec3
+    direction: float32
   GameData = object
     activeFighter: int
     fighters: seq[Fighter]
@@ -71,10 +72,26 @@ proc wasmSetTarget(data: pointer, mem: MemoryInst, params, returns: WasmParamLis
   activeFighter().target = vec3(params[0].getValue[: float32](), 0,  params[1].getValue[: float32]())
   WasmResult()
 
+proc wasmFire(data: pointer, mem: MemoryInst, params, returns: WasmParamList): WasmResult {.cdecl.} =
+  ## Host function for wasm logic
+  if activeFighter().canFire:
+    activeFighter().fire()
+    let fighter = activeFighter()
+    gameData.projectiles.add(Projectile(id: fighter.teamId(), direction: fighter.heading, pos: fighter.getPos()))
+    echo "Fire"
+
+let wasmProcs = [
+  wasmProcDef("setTarget", [valTypef32, valTypef32], [], wasmSetTarget),
+  wasmProcDef("getPos", [], [valTypef32, valTypef32, valTypef32], wasmGetPos),
+  wasmProcDef("getHeading", [], [valTypef32], wasmGetHeading),
+  wasmProcDef("fire", [], [], wasmFire)
+  ]
+
+
 proc init() =
   glClearColor(0.5, 0.5, 0.5, 1)
   invokeResourceProcs()
-  gameData.wasmEnvs.add loadWasm("flytocenter.wasm", wasmGetHeading, wasmGetPos, wasmSetTarget)
+  gameData.wasmEnvs.add loadWasm("flytocenter.wasm", wasmProcs)
 
 proc update(dt: float32) =
 
@@ -87,7 +104,7 @@ proc update(dt: float32) =
     fighter.update(dt)
 
   if KeyCodef11.isDown():
-    gameData.wasmEnvs[0] = loadWasm("flytocenter.wasm", wasmGetHeading, wasmGetPos, wasmSetTarget)
+    gameData.wasmEnvs[0] = loadWasm("flytocenter.wasm", wasmProcs)
 
 
   shipModel.ssboData.setLen(0)
