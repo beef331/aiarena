@@ -53,5 +53,5 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
     echo e.msg
 
 proc update*(wasmEnv: var WasmEnv, id: int32, dt: float32) =
-  if cast[int](wasmEnv.updateFunc) != 0:
+  if not wasmEnv.updateFunc.isNil:
     wasmEnv.executor.invoke(wasmEnv.updateFunc, args = [wasmValue(id), wasmValue(dt)])
