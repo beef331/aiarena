@@ -3,7 +3,7 @@ import std/[os, times, sequtils]
 
 type
   WasmEnv* = object
-    initFunc, updateFunc: UnmanagedFunctionInst
+    initFunc, updateFunc, allocFunc, deallocFunc: UnmanagedFunctionInst
     module: ModuleContext
     ast: AstModuleContext
     executor: ExecutorContext
@@ -13,11 +13,13 @@ type
     name*: string
     paramType*, retType*: seq[ValType]
     hostProc*: HostProc[pointer]
+  MissingProcError = object of CatchableError
+
 
 proc wasmProcDef*(name: string, paramType, retType: openarray[ValType], hostProc: HostProc[pointer]): WasmProcDef =
   WasmProcDef(name: name, paramType: paramType.toSeq, retType: retType.toSeq, hostProc: hostProc)
 
-proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raises: [].} =
+proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raises: [MissingProcError].} =
   result.path = path
   try:
     result.lastModified = getLastModificationTime(path)
@@ -39,7 +41,6 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
       var
         typ = FunctionType.create(hostProc.paramType, hostProc.retType)
         inst = typ.createInst(hostProc.hostProc)
-      echo hostProc.name, " ", hostProc.paramType, " ", hostProc.retType
       mymodule.addFunction(hostProc.name, inst)
 
     result.executor.registerImport(store, myModule)
@@ -47,6 +48,13 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
 
     result.updateFunc = result.module.findFunction("update")
     result.initFunc = result.module.findFunction("init")
+    result.allocFunc = result.module.findFunction("allocMem")
+    result.deallocFunc = result.module.findFunction("deallocMem")
+    for name, val in result.fieldPairs:
+      when val is UnmanagedFunctionInst:
+        if val.isNil:
+          raise newException(MissingProcError, "Missing procedure named: " & name[0..^5])
+
   except WasmError as e:
     echo e.msg
   except OsError as e:
