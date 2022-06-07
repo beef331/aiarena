@@ -17,8 +17,7 @@ proc deallocMem(address: pointer) {.wasmexport.} = system.dealloc(address)
 
 proc update(id: int32, dt: float32) {.wasmexport.} =
   let id = int id
-  if id == 0:
-    fire()
+  fire()
   if fighterData[id][1].isNil:
     fighterData[id][1] = FighterData()
 

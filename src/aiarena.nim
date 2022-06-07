@@ -6,6 +6,8 @@ import core/[resources, fighters, wasmenvs]
 shaderPath = "assets/shaders"
 modelPath = "assets/models"
 
+const projectileSpeed = 10f
+
 type
   ShipRenderData {.packed.}= object
     pos: Vec3
@@ -13,25 +15,13 @@ type
     model: Mat4
   ShipRender = seq[ShipRenderData]
 
-var
-  shipModel: InstancedModel[ShipRender]
-  targetModel: InstancedModel[ShipRender]
-  shipShader: Shader
-  teamColors: SSBO[seq[Vec4]]
-
-addResourceProc do:
-  shipModel = loadInstancedModel[ShipRender]("ship.glb")
-  targetModel = loadInstancedModel[ShipRender]("target.glb")
-  shipShader = loadShader(ShaderPath"vert.glsl", ShaderPath"frag.glsl")
-  teamColors = genSsbo[seq[Vec4]](2)
-  @[vec4(1, 1, 1, 1), vec4(1, 0, 0, 0), vec4(0, 1, 0, 1), vec4(0, 0, 1, 1)].copyTo(teamColors)
-
-
-type
-  Projectile = object
-    id: int
+  Projectile {.packed.} = object
     pos: Vec3
-    direction: float32
+    teamid: int32
+    matrix {.align: 16.}: Mat4
+    lifetime: float32
+
+
   GameData = object
     activeFighter: int
     fighters: seq[Fighter]
@@ -39,12 +29,32 @@ type
     arenaSize: float32
     wasmEnvs: seq[WasmEnv]
 
+var
+  shipModel: InstancedModel[ShipRender]
+  targetModel: InstancedModel[ShipRender]
+  projectileModel: InstancedModel[seq[Projectile]]
+  shipShader, projectileShader: Shader
+  teamColors: SSBO[seq[Vec4]]
+
+addResourceProc do:
+  shipModel = loadInstancedModel[ShipRender]("ship.glb")
+  targetModel = loadInstancedModel[ShipRender]("target.glb")
+  projectileModel = loadInstancedModel[seq[Projectile]]("projectile.glb")
+  shipShader = loadShader(ShaderPath"vert.glsl", ShaderPath"frag.glsl")
+  projectileShader = loadShader(ShaderPath"projvert.glsl", ShaderPath"projfrag.glsl")
+  teamColors = genSsbo[seq[Vec4]](2)
+  @[vec4(1, 1, 1, 1), vec4(1, 0, 0, 0), vec4(0, 1, 0, 1), vec4(0, 0, 1, 1)].copyTo(teamColors)
+
+
+
+
 addEvent(KeyCodeQ, pressed, epHigh) do(keyEvent: var KeyEvent, dt: float):
   echo "buh bye"
   quitTruss()
 
 var
   gameData = GameData(activeFighter: -1, fighters: @[randFighter(0), randFighter(0), randFighter(0), randFighter(1), randFighter(1), randFighter(1), randFighter(2), randFighter(3)], arenaSize: 20)
+  #gameData = GameData(activeFighter: -1, fighters: @[randFighter(0)], arenaSize: 20)
   view = lookAt(vec3(0, 3, 0), vec3(0, 0, 0), vec3(0, 1, 0))
   proj = perspective(90f, screenSize().x.float / screenSize().y.float, 0.01, 1000)
 
@@ -77,10 +87,10 @@ proc wasmFire(data: pointer, mem: MemoryInst, params, returns: WasmParamList): W
   if activeFighter().canFire:
     activeFighter().fire()
     let fighter = activeFighter()
-    gameData.projectiles.add(Projectile(id: fighter.teamId(), direction: fighter.heading, pos: fighter.getPos()))
-    echo "Fire"
+    gameData.projectiles.add(Projectile(teamid: fighter.teamId(), matrix: mat4() * rotateY(fighter.heading), pos: fighter.getPos()))
+    #gameData.projectiles.add(Projectile(pos: fighter.getPos(), matrix: rotateY(fighter.heading)))
 
-let wasmProcs = [
+const wasmProcs = [
   wasmProcDef("setTarget", [valTypef32, valTypef32], [], wasmSetTarget),
   wasmProcDef("getPos", [], [valTypef32, valTypef32, valTypef32], wasmGetPos),
   wasmProcDef("getHeading", [], [valTypef32], wasmGetHeading),
@@ -117,14 +127,27 @@ proc update(dt: float32) =
   targetModel.reuploadSsbo()
   shipModel.reuploadSsbo()
 
+  projectileModel.ssboData.setLen(0)
+  for proj in gameData.projectiles.mitems:
+    proj.pos += proj.matrix * vec3(0, 0, 1) * (dt * projectileSpeed)
+    projectileModel.ssboData.add proj
+  projectileModel.drawCount = gameData.projectiles.len
+  projectileModel.reuploadSsbo()
+
 
 
 proc draw() =
+  teamColors.bindBuffer()
+  with projectileShader:
+    projectileShader.setUniform("VP", proj * view)
+    projectileModel.render(1)
   with shipShader:
     glEnable(GlDepthTest)
     shipShader.setUniform("VP", proj * view)
     shipModel.render(1)
     targetModel.render(1)
+
+
 
 
 initTruss("Hello", ivec2(1280, 720), init, update, draw)
