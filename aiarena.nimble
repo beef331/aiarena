@@ -12,3 +12,4 @@ bin           = @["aiarena"]
 
 requires "nim >= 1.7.1"
 requires "wasmedge"
+requires "truss3D"

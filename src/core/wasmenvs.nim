@@ -50,6 +50,18 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
     result.initFunc = result.module.findFunction("init")
     result.allocFunc = result.module.findFunction("allocMem")
     result.deallocFunc = result.module.findFunction("deallocMem")
+
+    template checkType(name: untyped, params, res: openarray[ValType]) =
+      try:
+        result.name.funcType.ensureType(params, res)
+      except Exception as e:
+        echo "Failed to load '", astToStr(name), "' ", e.msg
+
+    checkType(updateFunc, [valTypei32, valTypef32], [])
+    checkType(initFunc, [], [])
+    checkType(allocFunc, [valTypei32], [valtypei32])
+    checkType(deallocFunc, [valtypei32], [])
+
     for name, val in result.fieldPairs:
       when val is UnmanagedFunctionInst:
         if val.isNil:
