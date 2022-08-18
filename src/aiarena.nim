@@ -127,12 +127,14 @@ proc update(dt: float32) =
   targetModel.reuploadSsbo()
   shipModel.reuploadSsbo()
 
-  projectileModel.ssboData.setLen(0)
-  for proj in gameData.projectiles.mitems:
-    proj.pos += proj.matrix * vec3(0, 0, 1) * (dt * projectileSpeed)
-    projectileModel.ssboData.add proj
-  projectileModel.drawCount = gameData.projectiles.len
-  projectileModel.reuploadSsbo()
+
+  if gameData.projectiles.len > 0:
+    projectileModel.ssboData.setLen(0)
+    for proj in gameData.projectiles.mitems:
+      proj.pos += proj.matrix * vec3(0, 0, 1) * (dt * projectileSpeed)
+      projectileModel.ssboData.add proj
+    projectileModel.drawCount = gameData.projectiles.len
+    projectileModel.reuploadSsbo()
 
 
 
