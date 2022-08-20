@@ -9,12 +9,6 @@ modelPath = "assets/models"
 const projectileSpeed = 10f
 
 type
-  TankRenderData {.packed.}= object
-    pos: Vec3
-    teamId: int32
-    model: Mat4
-  TankRender = seq[TankRenderData]
-
   Projectile {.packed.} = object
     pos: Vec3
     teamid: int32

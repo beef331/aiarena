@@ -1,4 +1,7 @@
-import vmath
+import truss3D, vmath, wasmedge, opengl
+import truss3D/[inputs, shaders, models, instancemodels]
+
+const projectileSpeed = 10f
 
 type
   TileKind* = enum
@@ -9,17 +12,44 @@ type
 
   Tile* = object
     occupied*: bool
-    case kind*: TileKind
-    of controlPoint:
-      teamId*: int
-    else:
-      discard
+    kind*: TileKind
+    teamId*: int
 
   World* = object
     size*: IVec2
     data*: seq[Tile]
 
+type
+  TileRenderData {.packed.}= object
+    pos: Vec3
+    teamId: int32
+  TileRender = seq[TileRenderData]
+
+
 const walkable = {floor, controlPoint}
 
 proc canMoveTo*(tile: Tile): bool = tile.kind in walkable and not tile.occupied
 
+const modelHeights = [
+  empty: 0f,
+  wall: 1,
+  floor: 0,
+  controlPoint: 0
+  ]
+
+var tileModels: array[TileKind, InstancedModel[TileRender]]
+
+proc render*(world: World) =
+  for model in tileModels.mitems:
+    model.ssboData.setLen(0)
+    model.drawCount = 0
+  for i, tile in world.data.pairs:
+    if tile.kind != empty:
+      let
+        y = modelHeights[tile.kind]
+        pos = vec3(float32(i / world.size.x), y, float32(i mod world.size.x))
+      tileModels[tile.kind].ssboData.add TileRenderData(pos: pos, teamId: tile.teamId)
+  for model in tileModels.mitems:
+    if model.ssboData.len > 0:
+      model.drawCount = model.ssboData.len
+      ## Render models
