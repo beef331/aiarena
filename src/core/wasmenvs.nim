@@ -15,7 +15,7 @@ type
     tankData: WasmSeq[Tank] # Heap allocated sequencve inside the runtime
     worldSize: uint32 # pointer to a `(uint32, uint32)`
     executor: ExecutorContext
-    path: string
+    path: string # Path to watch
     lastModified: Time
   WasmProcDef* = object
     name*: string
@@ -58,6 +58,8 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
     result.initFunc = result.module.findFunction("init")
     result.allocFunc = result.module.findFunction("allocMem")
     result.deallocFunc = result.module.findFunction("deallocMem")
+    result.worldSize = result.module.findGlobal("worldSize").getVal[: uint32]()
+
 
     result.memory = result.module.findMemory("memory")
 
@@ -88,8 +90,8 @@ proc updateTileData*(env: var WasmEnv, tiles: seq[Tile]) =
     if env.tileData.data != 0: # We already allocated
       env.executor.invoke(env.deallocFunc, wasmValue(env.tileData.data))
     var res: WasmValue
-    env.executor.invoke(env.allocFunc, wasmValue cast[int32](max(uint32 tiles.len, 64u32)), res)
-  env.len = tiles.len
+    env.executor.invoke(env.allocFunc, wasmValue max(uint32 tiles.len, 64u32), res)
+  env.tileData.len = uint32 tiles.len
   env.memory.setData(tiles)
 
 
