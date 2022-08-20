@@ -1,11 +1,19 @@
 import wasmedge
 import std/[os, times, sequtils]
+import worlds, tanks
 
 type
+  WasmSeq*[T] = object
+    data: uint32 # Pointer to data
+    len, capacity: uint32
   WasmEnv* = object
     initFunc, updateFunc, allocFunc, deallocFunc: UnmanagedFunctionInst
     module: ModuleContext
+    memory: UnmanagedMemoryInst
     ast: AstModuleContext
+    tileData: WasmSeq[Tile] # Heap allocated sequencve inside the runtime
+    tankData: WasmSeq[Tank] # Heap allocated sequencve inside the runtime
+    worldSize: uint32 # pointer to a `(uint32, uint32)`
     executor: ExecutorContext
     path: string
     lastModified: Time
@@ -51,6 +59,8 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
     result.allocFunc = result.module.findFunction("allocMem")
     result.deallocFunc = result.module.findFunction("deallocMem")
 
+    result.memory = result.module.findMemory("memory")
+
     template checkType(name: untyped, params, res: openarray[ValType]) =
       try:
         result.name.funcType.ensureType(params, res)
@@ -71,6 +81,16 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
     echo e.msg
   except OsError as e:
     echo e.msg
+
+proc updateTileData*(env: var WasmEnv, tiles: seq[Tile]) =
+  if env.tileData.capacity < uint32 max(tiles.len, 64):
+    env.tileData.capacity = uint32 max(tiles.len, 64)
+    if env.tileData.data != 0: # We already allocated
+      env.executor.invoke(env.deallocFunc, wasmValue(env.tileData.data))
+    var res: WasmValue
+    env.executor.invoke(env.allocFunc, wasmValue cast[int32](max(uint32 tiles.len, 64u32)), res)
+  env.memory.setData(tiles)
+
 
 proc update*(wasmEnv: var WasmEnv, id: int32, dt: float32) =
   if not wasmEnv.updateFunc.isNil:
