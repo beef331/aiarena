@@ -89,6 +89,7 @@ proc updateTileData*(env: var WasmEnv, tiles: seq[Tile]) =
       env.executor.invoke(env.deallocFunc, wasmValue(env.tileData.data))
     var res: WasmValue
     env.executor.invoke(env.allocFunc, wasmValue cast[int32](max(uint32 tiles.len, 64u32)), res)
+  env.len = tiles.len
   env.memory.setData(tiles)
 
 
