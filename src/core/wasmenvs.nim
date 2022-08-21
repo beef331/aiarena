@@ -1,19 +1,20 @@
 import wasmedge
 import std/[os, times, sequtils]
-import worlds, tanks
+import worlds, tanks, projectiles
 
 type
   WasmSeq*[T] = object
     data: uint32 # Pointer to data
     len, capacity: uint32
   WasmEnv* = object
-    initFunc, updateFunc, allocFunc, deallocFunc: UnmanagedFunctionInst
+    inputFunc, allocFunc, deallocFunc: UnmanagedFunctionInst
     module: ModuleContext
     memory: UnmanagedMemoryInst
     ast: AstModuleContext
     tileData: WasmSeq[Tile] # Heap allocated sequencve inside the runtime
     tankData: WasmSeq[Tank] # Heap allocated sequencve inside the runtime
     worldSize: uint32 # pointer to a `(uint32, uint32)`
+    activeTank: uint32 # pointer to a tank
     executor: ExecutorContext
     path: string # Path to watch
     lastModified: Time
@@ -54,8 +55,7 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
     result.executor.registerImport(store, myModule)
     result.executor.instantiate(result.module, store, result.ast)
 
-    result.updateFunc = result.module.findFunction("update")
-    result.initFunc = result.module.findFunction("init")
+    result.inputFunc = result.module.findFunction("getInput")
     result.allocFunc = result.module.findFunction("allocMem")
     result.deallocFunc = result.module.findFunction("deallocMem")
     result.worldSize = result.module.findGlobal("worldSize").getVal[: uint32]()
@@ -69,8 +69,7 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
       except Exception as e:
         echo "Failed to load '", astToStr(name), "' ", e.msg
 
-    checkType(updateFunc, [valTypei32, valTypef32], [])
-    checkType(initFunc, [], [])
+    checkType(inputFunc, [valTypei32, valTypei32], [valTypei32])
     checkType(allocFunc, [valTypei32], [valtypei32])
     checkType(deallocFunc, [valtypei32], [])
 
@@ -84,17 +83,35 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
   except OsError as e:
     echo e.msg
 
-proc updateTileData*(env: var WasmEnv, tiles: seq[Tile]) =
+proc updateData*(env: var WasmEnv, tiles: seq[Tile]) =
   if env.tileData.capacity < uint32 max(tiles.len, 64):
     env.tileData.capacity = uint32 max(tiles.len, 64)
     if env.tileData.data != 0: # We already allocated
       env.executor.invoke(env.deallocFunc, wasmValue(env.tileData.data))
     var res: WasmValue
-    env.executor.invoke(env.allocFunc, wasmValue max(uint32 tiles.len, 64u32), res)
+    env.executor.invoke(env.allocFunc, wasmValue uint32(max(tiles.len, 64) * sizeof(Tile)), res)
   env.tileData.len = uint32 tiles.len
-  env.memory.setData(tiles)
+  env.memory.setData(env.tileData.data, tiles)
+
+proc updateData*(env: var WasmEnv, tanks: seq[Tank]) =
+  if env.tankData.capacity < uint32 max(tanks.len, 64):
+    env.tankData.capacity = uint32 max(tanks.len, 64)
+    if env.tileData.data != 0: # We already allocated
+      env.executor.invoke(env.deallocFunc, wasmValue(env.tileData.data))
+    var res: WasmValue
+    env.executor.invoke(env.allocFunc, wasmValue uint32(max(tanks.len, 64) * sizeof(Tile)), res)
+  env.tileData.len = uint32 tanks.len
+  env.memory.setData(env.tankData.data, tanks)
 
 
-proc update*(wasmEnv: var WasmEnv, id: int32, dt: float32) =
-  if not wasmEnv.updateFunc.isNil:
-    wasmEnv.executor.invoke(wasmEnv.updateFunc, args = [wasmValue(id), wasmValue(dt)])
+proc getInput*(env: var WasmEnv, activeTank: Tank, tanks: seq[Tank], world: World, projectile: seq[Projectile]): Input =
+  var res: WasmValue
+  if env.activeTank == 0:
+    env.executor.invoke(env.allocFunc, wasmvalue(uint32 sizeof(Tank)), res)
+    env.activeTank = res.getValue[: uint32]()
+  env.memory.setData(env.activeTank, Tank(activeTank))
+  env.memory.setData(env.worldSize, world.size)
+  env.updateData(tanks)
+  env.updateData(world.data)
+  reset(res)
+  env.executor.invoke(env.inputFunc, [wasmValue env.tileData.data, wasmValue env.tankData.data], res)

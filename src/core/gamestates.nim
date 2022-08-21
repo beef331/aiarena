@@ -1,5 +1,6 @@
 import vmath
 import projectiles, tanks, worlds, wasmenvs
+import std/sugar
 
 type
   Controller = enum
@@ -51,6 +52,10 @@ proc getInput*(gameState: var GameState): Input =
   # TODO: Smartly handle a delay with FD and a thread that kills operation.
   # Also should ensure the move is legal, in the case it's not perhaps run a few times, or just twice
   # If it fails on second run, end the simulation the AI is too dumb.
+  let tanks = collect:
+    for (_, tank) in gamestate.envIndTank:
+      Tank(tank)
+  discard gameState.activeWasm.getInput(gameState.activeTank, tanks, gameState.world, gamestate.projectiles)
   nothing # Just for now we return nothing
 
 
@@ -63,12 +68,15 @@ func collisionCheck(gameState: var Gamestate) =
   for i in 0..gamestate.projectiles.high:
     let projPos = gameState.projectiles[i].getPos
     if projPos.x notin 0..gamestate.world.size.x or projPos.y notin 0..gameState.world.size.y:
-      # TODO remove projectile
-      break
+      gameState.projectiles.del(i)
+      continue
     for (_, tank) in gamestate.envIndTank.mitems:
       if tank.getPos == gameState.projectiles[i].getPos:
-        discard
-        # TODO damage tank and remove projectile
+        gameState.projectiles.del(i)
+        tank.damage()
+        if tank.isDead:
+          # TODO: Play explosion particle effect, imagine a big boom
+          discard
 
 func update*(gameState: var GameState, dt: float32) =
   case gamestate.controller
@@ -80,6 +88,8 @@ func update*(gameState: var GameState, dt: float32) =
         allFinished = false
     if allFinished:
       gamestate.collisionCheck()
+      inc gamestate.activeIndex
+      gameState.activeIndex = gameState.activeIndex mod gameState.envIndTank.len
       gamestate.nextTick()
   of player:
     if not gamestate.gotInput:
@@ -87,10 +97,7 @@ func update*(gameState: var GameState, dt: float32) =
       gamestate.gotInput = true
     else:
       if gameState.activeTank.move(dt):
-        try: # Are we really to lazy to just check if the position is valid?!
-          gamestate.world[gamestate.activeTank.getPos].teamId = gameState.activeTank.teamId
-        except:
-          discard
+        gamestate.world[gamestate.activeTank.getPos].teamId = gameState.activeTank.teamId
         gamestate.nextTick()
 
 

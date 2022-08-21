@@ -97,6 +97,10 @@ func getRenderRot(tank: NativeTank): float32 =
   else:
     rot
 
+func isDead*(tank: Tank): bool = tank.health <= 0
+
+func damage*(tank: var Tank) = dec tank.health
+
 func render*(instModel: var InstancedModel[TankRender], tank: NativeTank) =
   instModel.ssboData.add TankRenderData(teamId: tank.teamId, model: mat4() * translate(tank.getRenderPos()) * rotateY(tank.getRenderRot()))
 
