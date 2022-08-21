@@ -25,7 +25,7 @@ proc getRenderPos*(projectile: Projectile): Vec3 =
   result = lerp(result, result + projectile.dir.asVec, 1 - (projectile.moveProgress / projectileMoveTime))
 
 proc addToRender*(instModel: var InstancedModel[ProjectileRender], projectile: Projectile) =
-  instModel.add ProjectileRenderData(teamId: projectile.teamId, matrix: mat4() * translate(projectile.getRenderPos()) * rotateY(projectile.dir.asRot()))
+  instModel.ssbodata.add ProjectileRenderData(teamId: projectile.teamId, matrix: mat4() * translate(projectile.getRenderPos()) * rotateY(projectile.dir.asRot()))
 
 
 

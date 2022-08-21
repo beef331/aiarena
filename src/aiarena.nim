@@ -1,7 +1,7 @@
 import truss3D, vmath, wasmedge, opengl
 import truss3D/[inputs, shaders, models, instancemodels]
 import std/[os, times, enumerate]
-import core/[resources, tanks, wasmenvs]
+import core/[resources, tanks, wasmenvs, worlds, projectiles]
 
 shaderPath = "assets/shaders"
 modelPath = "assets/models"
