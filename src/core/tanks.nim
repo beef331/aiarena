@@ -22,14 +22,14 @@ type
   Tank* {.pure.} = object of RootObj
     pos: Ivec2
     dir: Direction
-    teamId: int32
+    teamId*: int32
     health: int32
     presentInput: Input
 
-  NativeTank = object of Tank
+  NativeTank* = object of Tank
     moveProgress*: float32 # When this is >= 1 we've reached target move to it
 
-proc input*(tank: var NativeTank, input: Input) =
+func input*(tank: var NativeTank, input: Input) =
   tank.presentInput = input
   case input
   of turnLeft, turnRight:
@@ -41,7 +41,7 @@ proc input*(tank: var NativeTank, input: Input) =
   of nothing:
     discard
 
-proc isFinishedMoving*(tank: NativeTank): bool =
+func isFinishedMoving*(tank: NativeTank): bool =
   case tank.presentInput:
   of turnLeft, turnRight, moveForward:
     tank.moveProgress <= 0
@@ -50,10 +50,23 @@ proc isFinishedMoving*(tank: NativeTank): bool =
   of nothing:
     true
 
-proc update*(tank: var NativeTank, dt: float32) =
+func move*(tank: var NativeTank, dt: float32): bool =
+  ## Moves the tank and returns true when it's fully moved
   tank.moveProgress -= dt
+  result = tank.isFinishedMoving()
+  if result:
+    case tank.presentInput
+    of moveForward:
+      tank.pos += ivec2(tank.dir.asVec.xz)
+      tank.input nothing
+    of turnLeft:
+      tank.dir.setToPred()
+    of turnRight:
+      tank.dir.setToNext()
+    of nothing, fire:
+      tank.input nothing
 
-proc progress(tank: NativeTank): float32 =
+proc progress*(tank: NativeTank): float32 =
  case tank.presentInput
  of turnLeft, turnRight:
    1 - clamp(tank.moveProgress / turnTime, 0, 1)
@@ -62,7 +75,9 @@ proc progress(tank: NativeTank): float32 =
  else:
    1
 
-proc getRenderPos(tank: NativeTank): Vec3 =
+func fullyMoved*(tank: NativeTank): bool = tank.progress <= 0
+
+func getRenderPos(tank: NativeTank): Vec3 =
   let pos = vec3(float32 tank.pos.x, 1, float32 tank.pos.y)
   case tank.presentInput
   of moveForward:
@@ -70,7 +85,7 @@ proc getRenderPos(tank: NativeTank): Vec3 =
   else:
     pos
 
-proc getRenderRot(tank: NativeTank): float32 =
+func getRenderRot(tank: NativeTank): float32 =
   let rot = tank.dir.asRot()
   case tank.presentInput
   of turnLeft:
@@ -80,6 +95,6 @@ proc getRenderRot(tank: NativeTank): float32 =
   else:
     rot
 
-proc render*(instModel: var InstancedModel[TankRender], tank: NativeTank) =
+func render*(instModel: var InstancedModel[TankRender], tank: NativeTank) =
   instModel.ssboData.add TankRenderData(teamId: tank.teamId, model: mat4() * translate(tank.getRenderPos()) * rotateY(tank.getRenderRot()))
 

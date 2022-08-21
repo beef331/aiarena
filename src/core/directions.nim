@@ -27,3 +27,16 @@ proc asRot*(dir: Direction): float32 =
     Tau * 0.75
   of west:
     Tau / 2
+
+
+proc setToNext*(dir: var Direction) =
+  if dir == Direction.high:
+    dir = Direction.low
+  else:
+    dir = succ(dir)
+
+proc setToPred*(dir: var Direction) =
+  if dir == Direction.low:
+    dir = dir.high
+  else:
+    dir = pred(dir)
