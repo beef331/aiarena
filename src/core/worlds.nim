@@ -1,5 +1,6 @@
 import truss3D, vmath, wasmedge, opengl
 import truss3D/[inputs, shaders, models, instancemodels]
+import resources
 
 const projectileSpeed = 10f
 
@@ -19,13 +20,20 @@ type
     size*: IVec2
     data*: seq[Tile]
 
-  TileRenderData {.packed.}= object
+  TileRenderData {.packed.} = object
     pos: Vec3
     teamId: int32
 
   TileRender = seq[TileRenderData]
 
   WorldIndexError* = object of CatchableError
+
+import std/random
+proc testWorld*(width, height: int): World =
+  result = World(size: ivec2(width, height), data: newSeq[Tile](width * height))
+  for val in result.data.mitems:
+    val.kind = rand(empty..controlPoint)
+    val.teamId = rand(0..3)
 
 proc `[]`*(world: World, pos: IVec2): Tile =
   if pos.x in 0..world.size.x and pos.y in 0..world.size.y:
@@ -44,15 +52,23 @@ const walkable = {floor, controlPoint}
 proc canMoveTo*(tile: Tile): bool = tile.kind in walkable and not tile.occupied
 
 const modelHeights = [
-  empty: 0f,
-  wall: 1,
-  floor: 0,
-  controlPoint: 0
+    empty: 0f,
+    wall: 1,
+    floor: 0,
+    controlPoint: 0
   ]
 
-var tileModels: array[TileKind, InstancedModel[TileRender]]
+var
+  tileModels: array[TileKind, InstancedModel[TileRender]]
+  tileShader: Shader
 
-proc render*(world: World) =
+addResourceProc:
+  tileShader = loadShader(ShaderPath"tilevert.glsl", ShaderPath"tilefrag.glsl")
+  for tile, _ in tileModels.pairs:
+    if tile != empty:
+      tileModels[tile] = loadInstancedModel[TileRender]("assets/models/cube.glb")
+
+proc render*(world: World, viewProj: Mat4) =
   for model in tileModels.mitems:
     model.ssboData.setLen(0)
     model.drawCount = 0
@@ -60,9 +76,13 @@ proc render*(world: World) =
     if tile.kind != empty:
       let
         y = modelHeights[tile.kind]
-        pos = vec3(float32(i / world.size.x), y, float32(i mod world.size.x))
+        pos = vec3(float32(i div world.size.x), y, float32(i mod world.size.x))
       tileModels[tile.kind].ssboData.add TileRenderData(pos: pos, teamId: tile.teamId)
   for model in tileModels.mitems:
     if model.ssboData.len > 0:
+      glEnable(GlDepthTest)
+      model.reuploadSsbo()
       model.drawCount = model.ssboData.len
-      ## Render models
+      with tileShader:
+        tileShader.setUniform("VP", viewProj)
+        model.render(1)

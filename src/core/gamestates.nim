@@ -1,6 +1,7 @@
 import vmath
-import projectiles, tanks, worlds, wasmenvs
+import projectiles, tanks, worlds, wasmenvs, resources
 import std/sugar
+import truss3D/[shaders]
 
 type
   Controller = enum
@@ -31,6 +32,11 @@ type
     wasmEnvs: seq[WasmEnv] # In a world we dont use Wasm we'd put Gamepad here
     gotInput: bool
     tick: int
+
+proc init*(_: typedesc[GameState], width, height: int): GameState =
+  result.world = testWorld(width, height)
+
+proc size*(gamestate: GameState): IVec2 = gamestate.world.size
 
 const NextTickController = [
     projectile: player, # After projectile 'player' goes
@@ -100,4 +106,21 @@ func update*(gameState: var GameState, dt: float32) =
         gamestate.world[gamestate.activeTank.getPos].teamId = gameState.activeTank.teamId
         gamestate.nextTick()
 
+var colorSsbo: Ssbo[array[4, Vec4]]
+
+addResourceProc:
+  let teamColours = [
+      vec4(1, 1, 1, 1),
+      vec4(1, 0, 0, 1),
+      vec4(0, 1, 0, 1),
+      vec4(0, 0, 1, 1)
+    ]
+  colorSsbo = genSsbo[typeof(teamColours)](2)
+  teamColours.copyTo(colorSsbo)
+
+proc render*(gameState: GameState, viewProj: Mat4) =
+  colorSsbo.bindBuffer()
+  gamestate.world.render(viewProj)
+  for _, tank in gamestate.envIndTank:
+    ##tank.render(viewProj)
 

@@ -11,16 +11,24 @@ addEvent(KeyCodeQ, pressed, epHigh) do(keyEvent: var KeyEvent, dt: float):
   quitTruss()
 
 
+var
+  view, proj: Mat4
+  gameState = GameState.init(10, 10)
+
 proc init() =
   glClearColor(0.5, 0.5, 0.5, 1)
   invokeResourceProcs()
 
 proc update(dt: float32) =
-  ##
+  let
+    camPos = vec3(gamestate.size.x / 2, 3, - 3)
+    lookPos = vec3(gamestate.size.x / 2, 0, gamestate.size.y / 2)
+  view = lookAt(camPos, lookPos, vec3(0, 1, 0))
+  proj = perspective(90f, screenSize().x.float / screenSize().y.float, 0.01, 1000)
 
 
 proc draw() =
-  ##
+  gameState.render(proj * view)
 
 
 
