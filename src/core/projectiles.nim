@@ -17,7 +17,7 @@ type
     matrix {.align: 16.}: Mat4
 
   ProjectileRender* = seq[ProjectileRenderData]
-
+func getPos*(projectile: Projectile): IVec2 = projectile.pos
 func finishedMoving*(projectile: Projectile): bool = projectile.moveProgress <= 0
 func moveTick*(projectile: Projectile): int = projectile.finishTick
 
@@ -36,6 +36,3 @@ proc getRenderPos*(projectile: Projectile): Vec3 =
 
 proc addToRender*(instModel: var InstancedModel[ProjectileRender], projectile: Projectile) =
   instModel.ssbodata.add ProjectileRenderData(teamId: projectile.teamId, matrix: mat4() * translate(projectile.getRenderPos()) * rotateY(projectile.dir.asRot()))
-
-
-

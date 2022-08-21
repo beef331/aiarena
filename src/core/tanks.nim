@@ -75,6 +75,8 @@ proc progress*(tank: NativeTank): float32 =
  else:
    1
 
+func getPos*(tank: Tank): Ivec2 = tank.pos
+
 func fullyMoved*(tank: NativeTank): bool = tank.progress <= 0
 
 func getRenderPos(tank: NativeTank): Vec3 =
