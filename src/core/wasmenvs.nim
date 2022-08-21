@@ -80,7 +80,7 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmProcDef]): WasmEnv {.raise
           raise newException(MissingProcError, "Missing procedure named: " & name[0..^5])
 
   except WasmError as e:
-    echo e.msg
+    echo "WasmError: ", e.msg
   except OsError as e:
     echo e.msg
 

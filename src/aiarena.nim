@@ -9,28 +9,18 @@ modelPath = "assets/models"
 const projectileSpeed = 10f
 
 type
-  Projectile {.packed.} = object
-    pos: Vec3
-    teamid: int32
-    matrix {.align: 16.}: Mat4
-    lifetime: float32
-
-
   GameData = object
     tanks: seq[Tank]
-    projectiles: seq[Projectile]
     arenaSize: float32
     wasmEnvs: seq[WasmEnv]
 
 var
   tankModel: InstancedModel[TankRender]
-  projectileModel: InstancedModel[seq[Projectile]]
   tankShader, projectileShader: Shader
   teamColors: SSBO[seq[Vec4]]
 
 addResourceProc do:
   tankModel = loadInstancedModel[TankRender]("ship.glb")
-  projectileModel = loadInstancedModel[seq[Projectile]]("projectile.glb")
   tankShader = loadShader(ShaderPath"vert.glsl", ShaderPath"frag.glsl")
   projectileShader = loadShader(ShaderPath"projvert.glsl", ShaderPath"projfrag.glsl")
   teamColors = genSsbo[seq[Vec4]](2)
@@ -69,7 +59,6 @@ proc draw() =
   teamColors.bindBuffer()
   with projectileShader:
     projectileShader.setUniform("VP", proj * view)
-    projectileModel.render(1)
   with tankShader:
     glEnable(GlDepthTest)
     tankShader.setUniform("VP", proj * view)

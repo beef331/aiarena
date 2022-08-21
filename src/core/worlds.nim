@@ -19,12 +19,25 @@ type
     size*: IVec2
     data*: seq[Tile]
 
-type
   TileRenderData {.packed.}= object
     pos: Vec3
     teamId: int32
+
   TileRender = seq[TileRenderData]
 
+  WorldIndexError* = object of CatchableError
+
+proc `[]`*(world: World, pos: IVec2): Tile =
+  if pos.x in 0..world.size.x and pos.y in 0..world.size.y:
+    world.data[pos.x + pos.y * world.size.x]
+  else:
+    raise newException(WorldIndexError, "Outside range of the world")
+
+proc `[]`*(world: var World, pos: IVec2): var Tile =
+  if pos.x in 0..world.size.x and pos.y in 0..world.size.y:
+    result = world.data[pos.x + pos.y * world.size.x]
+  else:
+    raise newException(WorldIndexError, "Outside range of the world")
 
 const walkable = {floor, controlPoint}
 
