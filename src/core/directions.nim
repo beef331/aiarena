@@ -20,13 +20,13 @@ proc asVec*(dir: Direction): Vec3 =
 proc asRot*(dir: Direction): float32 =
   case dir
   of north:
-    Tau / 4
+    0f
   of east:
-    0
-  of south:
     Tau * 0.75
-  of west:
+  of south:
     Tau / 2
+  of west:
+    Tau / 4
 
 
 proc setToNext*(dir: var Direction) =

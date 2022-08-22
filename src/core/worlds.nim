@@ -26,23 +26,24 @@ type
 
   TileRender = seq[TileRenderData]
 
-  WorldIndexError* = object of CatchableError
+  WorldIndexError* = object of CatchableError # Am I really this crazy?!
 
-import std/random
 proc testWorld*(width, height: int): World =
   result = World(size: ivec2(width, height), data: newSeq[Tile](width * height))
   for val in result.data.mitems:
-    val.kind = rand(empty..controlPoint)
-    val.teamId = rand(0..3)
+    val.kind = floor
+
+proc contains*(world: World, pos: IVec2): bool = pos.x in 0..<world.size.x and pos.y in 0..<world.size.y
+
 
 proc `[]`*(world: World, pos: IVec2): Tile =
-  if pos.x in 0..world.size.x and pos.y in 0..world.size.y:
+  if pos in world:
     world.data[pos.x + pos.y * world.size.x]
   else:
     raise newException(WorldIndexError, "Outside range of the world")
 
 proc `[]`*(world: var World, pos: IVec2): var Tile =
-  if pos.x in 0..world.size.x and pos.y in 0..world.size.y:
+  if pos in world:
     result = world.data[pos.x + pos.y * world.size.x]
   else:
     raise newException(WorldIndexError, "Outside range of the world")

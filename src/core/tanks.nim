@@ -1,9 +1,9 @@
 import vmath
-import truss3D/[instancemodels]
-import directions
+import truss3D/[instancemodels, shaders]
+import directions, resources
 
 const
-  moveTime = 1f # Amount of time to move from A to B
+  moveTime = 0.2f # Amount of time to move from A to B
   turnTime= 0.3f # Amount of time to rotate left/right
 
 type
@@ -15,11 +15,11 @@ type
     fire
 
   TankRenderData *{.packed.}= object
+    model {.align: 16.}: Mat4
     teamId: int32
-    model: Mat4
   TankRender* = seq[TankRenderData]
 
-  Tank* {.pure.} = object of RootObj
+  Tank* {.pure, inheritable.} = object
     pos: Ivec2
     dir: Direction
     teamId*: int32
@@ -28,6 +28,9 @@ type
 
   NativeTank* = object of Tank
     moveProgress*: float32 # When this is >= 1 we've reached target move to it
+
+func init*(_: typedesc[NativeTank], pos: IVec2, dir: Direction, teamId: int): NativeTank =
+  NativeTank(pos: pos, dir: dir, teamId: teamId)
 
 func input*(tank: var NativeTank, input: Input) =
   tank.presentInput = input
@@ -58,13 +61,16 @@ func move*(tank: var NativeTank, dt: float32): bool =
     case tank.presentInput
     of moveForward:
       tank.pos += ivec2(tank.dir.asVec.xz)
-      tank.input nothing
     of turnLeft:
-      tank.dir.setToPred()
-    of turnRight:
       tank.dir.setToNext()
+    of turnRight:
+      tank.dir.setToPred()
     of nothing, fire:
-      tank.input nothing
+      discard
+    tank.input nothing
+
+
+proc moveDir*(tank: Tank): Direction = tank.dir
 
 proc progress*(tank: NativeTank): float32 =
  case tank.presentInput
@@ -91,9 +97,15 @@ func getRenderRot(tank: NativeTank): float32 =
   let rot = tank.dir.asRot()
   case tank.presentInput
   of turnLeft:
-    lerp(rot, rot + Tau / 2, tank.progress)
+    if tank.fullyMoved:
+      rot
+    else:
+      lerp(rot, rot - Tau / 4, tank.progress)
   of turnRight:
-    lerp(rot, rot - Tau / 2, tank.progress)
+    if tank.fullyMoved:
+      rot
+    else:
+      lerp(rot, rot + Tau / 4, tank.progress)
   else:
     rot
 
@@ -101,6 +113,22 @@ func isDead*(tank: Tank): bool = tank.health <= 0
 
 func damage*(tank: var Tank) = dec tank.health
 
-func render*(instModel: var InstancedModel[TankRender], tank: NativeTank) =
-  instModel.ssboData.add TankRenderData(teamId: tank.teamId, model: mat4() * translate(tank.getRenderPos()) * rotateY(tank.getRenderRot()))
+var
+  tankModel: InstancedModel[TankRender]
+  tankShader: Shader
+
+addResourceProc:
+  tankModel = loadInstancedModel[TankRender]("assets/models/tank.obj")
+  tankShader = loadShader(ShaderPath"assets/shaders/vert.glsl", ShaderPath"assets/shaders/frag.glsl")
+
+proc render*(tanks: seq[NativeTank], viewProj: Mat4) =
+  # Set shader
+  with tankShader:
+    tankShader.setUniform("VP", viewProj)
+    tankModel.ssboData.setLen(0)
+    for tank in tanks:
+      tankModel.ssboData.add TankRenderData(teamId: tank.teamId, model: mat4() * translate(tank.getRenderPos()) * rotateY(tank.getRenderRot()))
+    tankModel.drawCount = tankModel.ssboData.len
+    tankModel.reuploadSsbo()
+    tankModel.render(1)
 

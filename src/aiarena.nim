@@ -21,11 +21,11 @@ proc init() =
 
 proc update(dt: float32) =
   let
-    camPos = vec3(gamestate.size.x / 2, 3, - 3)
+    camPos = vec3(gamestate.size.x / 2, 5, - 3)
     lookPos = vec3(gamestate.size.x / 2, 0, gamestate.size.y / 2)
   view = lookAt(camPos, lookPos, vec3(0, 1, 0))
   proj = perspective(90f, screenSize().x.float / screenSize().y.float, 0.01, 1000)
-
+  gameState.update(dt)
 
 proc draw() =
   gameState.render(proj * view)

@@ -5,9 +5,8 @@ layout(location = 2) in vec2 uv;
 uniform mat4 VP;
 
 struct data{
-  vec3 pos;
-  int team;
   mat4 model;
+  int team;
 };
 
 layout(std430, binding = 1) buffer instanceData{
@@ -22,6 +21,6 @@ out vec4 teamColor;
 
 void main(){
   data theData = instData[gl_InstanceID];
-  gl_Position = VP * vec4((theData.model * vec4(vertex_position, 1)).xyz + theData.pos, 1);
+  gl_Position = VP * theData.model * vec4(vertex_position, 1);
   teamColor = colorData[theData.team];
 }
