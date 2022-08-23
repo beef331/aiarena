@@ -48,7 +48,7 @@ proc `[]`*(world: var World, pos: IVec2): var Tile =
   else:
     raise newException(WorldIndexError, "Outside range of the world")
 
-const walkable = {floor, controlPoint}
+const walkable = {TileKind.floor, controlPoint}
 
 proc canMoveTo*(tile: Tile): bool = tile.kind in walkable and not tile.occupied
 
@@ -77,7 +77,7 @@ proc render*(world: World, viewProj: Mat4) =
     if tile.kind != empty:
       let
         y = modelHeights[tile.kind]
-        pos = vec3(float32(i div world.size.x), y, float32(i mod world.size.x))
+        pos = vec3(float32(i mod world.size.x), y, float32(i div world.size.x))
       tileModels[tile.kind].ssboData.add TileRenderData(pos: pos, teamId: tile.teamId)
   for model in tileModels.mitems:
     if model.ssboData.len > 0:

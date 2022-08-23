@@ -3,5 +3,5 @@ out vec4 frag_colour;
 in vec4 teamColor;
 
 void main() {
-  frag_colour = vec4(0);
+  frag_colour = teamColor;
 }

@@ -14,7 +14,7 @@ type
     moveForward
     fire
 
-  TankRenderData *{.packed.}= object
+  TankRenderData* {.packed.}= object
     model {.align: 16.}: Mat4
     teamId: int32
   TankRender* = seq[TankRenderData]
@@ -31,6 +31,10 @@ type
 
 func init*(_: typedesc[NativeTank], pos: IVec2, dir: Direction, teamId: int): NativeTank =
   NativeTank(pos: pos, dir: dir, teamId: teamId)
+
+proc targetPos*(tank: Tank): IVec2 =
+  ## Returns where the tank will shoot or move to
+  tank.pos + ivec2(tank.dir.asVec.xz)
 
 func input*(tank: var NativeTank, input: Input) =
   tank.presentInput = input
@@ -68,7 +72,6 @@ func move*(tank: var NativeTank, dt: float32, onFinishedMoving: proc()) =
       discard
     tank.input nothing
     onFinishedMoving()
-
 
 proc moveDir*(tank: Tank): Direction = tank.dir
 
