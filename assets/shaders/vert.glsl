@@ -18,9 +18,11 @@ layout(std430, binding = 2) buffer colData{
 };
 
 out vec4 teamColor;
+out vec3 fNormal;
 
 void main(){
   data theData = instData[gl_InstanceID];
   gl_Position = VP * theData.model * vec4(vertex_position, 1);
+  fNormal = mat3(theData.model) * normal;
   teamColor = colorData[theData.team];
 }
