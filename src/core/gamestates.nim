@@ -23,7 +23,7 @@ type
     of Scripted:
       wasmEnv: WasmEnv
 
-  GameState* = object
+  GameState* = ref object
     tanks: seq[NativeTank] # int is the index of the wasmEnv
     inputIds: seq[int]
     projectiles: seq[Projectile]
@@ -36,12 +36,14 @@ type
 
 
 proc addTank(gameState: var GameState, tank: sink NativeTank, inputId: int) =
+  gamestate.world[tank.getPos].occupied = true
   gamestate.tanks.add tank
   gamestate.inputIds.add inputID
   gamestate.inputs.add default(GameInput) # Remove this later
 
 
 proc init*(_: typedesc[GameState], width, height: int): GameState =
+  result = GameState()
   result.world = testWorld(width, height)
   result.addTank(NativeTank.init(ivec2(0), north, 0), 0)
   result.addTank(NativeTank.init(ivec2(9, 9), south, 0), 0)
@@ -56,27 +58,29 @@ const NextTickController = [
     player: projectile # After 'player' projectile' goes
   ] # Array of controller to next controller, array to make complex relations easier
 
-func activeInputInd*(gameState: var GameState): var int =
+func activeInputInd*(gameState: GameState): var int =
   gameState.inputIds[gamestate.activeIndex]
 
-func activeTank*(gameState: var GameState): var NativeTank =
+func activeTank*(gameState: GameState): var NativeTank =
   gameState.tanks[gamestate.activeIndex]
 
-func activeInput*(gameState: var GameState): var GameInput=
+func activeInput*(gameState: GameState): var GameInput=
   gameState.inputs[gamestate.activeInputInd]
 
 
-func isValidInput(gameState: var GameState, input: Input): bool =
+func isValidInput(gameState: GameState, input: Input): bool =
   case input
   of moveForward:
-    let tank = gameState.activeTank
-    tank.getPos + ivec2(tank.moveDir.asVec.xz) in gamestate.world
+    let
+      tank = gameState.activeTank
+      targetPos = tank.getPos + ivec2(tank.moveDir.asVec.xz)
+    targetPos in gamestate.world and not gamestate.world[targetPos].occupied
   of fire:
     true # TODO: Handlethis
   of turnLeft, turnRight, nothing:
     true
 
-func getInput*(gameState: var GameState): Input =
+func getInput*(gameState: GameState): Input =
   ## Runs the wasm VM and gets input from the 'getInput' procedure
   # TODO: Smartly handle a delay with FD and a thread that kills operation.
   # Also should ensure the move is legal, in the case it's not perhaps run a few times, or just twice
@@ -97,12 +101,12 @@ func getInput*(gameState: var GameState): Input =
     turnLeft
 
 
-func nextTick*(gamestate: var GameState) =
+func nextTick*(gamestate: GameState) =
   gamestate.gotInput = false
   gamestate.controller = NextTickController[gamestate.controller]
   inc gamestate.tick
 
-func collisionCheck(gameState: var Gamestate) =
+func collisionCheck(gameState: Gamestate) =
   for i in 0..gamestate.projectiles.high:
     let projPos = gameState.projectiles[i].getPos
     if projPos.x notin 0..gamestate.world.size.x or projPos.y notin 0..gameState.world.size.y:
@@ -116,7 +120,7 @@ func collisionCheck(gameState: var Gamestate) =
           # TODO: Play explosion particle effect, imagine a big boom
           discard
 
-func update*(gameState: var GameState, dt: float32) =
+func update*(gameState: GameState, dt: float32) =
   case gamestate.controller
   of projectile:
     var allFinished = true
@@ -134,9 +138,14 @@ func update*(gameState: var GameState, dt: float32) =
       gamestate.activeTank.input gameState.getInput()
       gamestate.gotInput = true
     else:
-      if gameState.activeTank.move(dt):
-        gamestate.world[gamestate.activeTank.getPos].teamId = gameState.activeTank.teamId
+      let startPos = gamestate.activeTank.getPos()
+      gameState.activeTank.move(dt, proc() =
+        gamestate.world[startPos].occupied = false
+        let pos = gamestate.activeTank.getPos
+        gamestate.world[pos].occupied = true
+        gamestate.world[pos].teamId = gameState.activeTank.teamId
         gamestate.nextTick()
+      )
 
 var colorSsbo: Ssbo[array[4, Vec4]]
 

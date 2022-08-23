@@ -53,11 +53,10 @@ func isFinishedMoving*(tank: NativeTank): bool =
   of nothing:
     true
 
-func move*(tank: var NativeTank, dt: float32): bool =
+func move*(tank: var NativeTank, dt: float32, onFinishedMoving: proc()) =
   ## Moves the tank and returns true when it's fully moved
   tank.moveProgress -= dt
-  result = tank.isFinishedMoving()
-  if result:
+  if tank.isFinishedMoving():
     case tank.presentInput
     of moveForward:
       tank.pos += ivec2(tank.dir.asVec.xz)
@@ -68,6 +67,7 @@ func move*(tank: var NativeTank, dt: float32): bool =
     of nothing, fire:
       discard
     tank.input nothing
+    onFinishedMoving()
 
 
 proc moveDir*(tank: Tank): Direction = tank.dir
