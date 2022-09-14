@@ -12,5 +12,5 @@ bin           = @["aiarena"]
 
 requires "nim >= 1.6.6"
 requires "https://github.com/disruptek/assume >= 0.4.0"
-requires "wasmedge"
+requires "wasm3"
 requires "truss3D"

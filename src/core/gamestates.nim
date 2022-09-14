@@ -21,7 +21,7 @@ type
     of GamePad:
       ## Gamepad ID + Input -> Button
     of Scripted:
-      wasmEnv: WasmEnv
+      wasmEnv: AiEnv
 
   GameState* = ref object
     tanks: seq[NativeTank] # int is the index of the wasmEnv
@@ -45,9 +45,9 @@ func activeInput*(gameState: GameState): var GameInput=
 
 proc addTank(gameState: GameState, tank: sink NativeTank, inputId: int) =
   gamestate.world[tank.getPos].occupied = true
+  gamestate.world[tank.getPos].teamId = tank.teamId
   gamestate.tanks.add tank
   gamestate.inputIds.add inputID
-  gamestate.inputs.add GameInput(inputDevice: Keyboard)  # Remove this later
 
 proc spawnProjectile(gameState: GameState) =
   let tank = gameState.activeTank
@@ -56,6 +56,7 @@ proc spawnProjectile(gameState: GameState) =
 proc init*(_: typedesc[GameState], width, height: int): GameState =
   result = GameState()
   result.world = testWorld(width, height)
+  result.inputs.add GameInput(inputDevice: Scripted, wasmEnv: loadWasm("testai.wasm", []))
   result.addTank(NativeTank.init(ivec2(0), east, 1), 0)
   result.addTank(NativeTank.init(ivec2(9, 0), west, 2), 0)
   #result.addTank(NativeTank.init(ivec2(3, 0), west, 2), 0)
@@ -98,8 +99,8 @@ proc getInput*(gameState: GameState): Input =
       Tank(tank)
   case gamestate.activeInput.inputDevice:
   of Scripted:
-    ##discard gamestate.activeInput.wasmEnv.getInput(gameState.activeTank, tanks, gameState.world, gamestate.projectiles)
-    Input.nothing
+    gameState.gotInput = true
+    gamestate.activeInput.wasmEnv.getInput(gameState.activeTank, tanks, gameState.world, gamestate.projectiles)
   of GamePad:
     Input.nothing
   of Keyboard:
@@ -119,21 +120,17 @@ proc getInput*(gameState: GameState): Input =
       nothing
 
 
-func nextTick*(gamestate: GameState) =
-  gamestate.gotInput = false
-  gamestate.controller = NextTickController[gamestate.controller]
-  inc gamestate.tick
-
 func collisionCheck(gameState: Gamestate) =
   for i in countDown(gamestate.projectiles.high, 0):
     if i > gamestate.projectiles.high:
       continue
+    let thisProj = gamestate.projectiles[i]
     var hitAnother = false
     for j in countDown(i, 0):
       if i != j:
-        if gameState.projectiles[i].getPos == gameState.projectiles[j].getPos or
-          gameState.projectiles[i].nextPos == gameState.projectiles[j].getPos or
-          gameState.projectiles[j].nextPos == gamestate.projectiles[i].getPos:
+        if thisProj.getPos == gameState.projectiles[j].getPos or
+          thisProj.nextPos == gameState.projectiles[j].getPos or
+          gameState.projectiles[j].nextPos == thisProj.getPos:
           hitAnother = true
           gameState.projectiles.del(i)
           gamestate.projectiles.del(j)
@@ -146,13 +143,19 @@ func collisionCheck(gameState: Gamestate) =
       gameState.projectiles.del(i)
       continue
     for tank in gamestate.tanks.mitems:
-      if tank.getPos == gameState.projectiles[i].getPos:
+      if tank.getPos == thisProj.getPos and tank.teamId != thisProj.team:
         gameState.projectiles.del(i)
         tank.damage()
         if tank.isDead:
           # TODO: Play explosion particle effect, imagine a big boom
           discard
         break # Killed the projectile move to next
+
+func nextTick*(gamestate: GameState) =
+  gamestate.gotInput = false
+  gamestate.controller = NextTickController[gamestate.controller]
+  inc gamestate.tick
+  gamestate.collisionCheck() # End of turn check collisions
 
 proc update*(gameState: GameState, dt: float32) =
   case gamestate.controller
@@ -163,7 +166,6 @@ proc update*(gameState: GameState, dt: float32) =
       if proj.moveTick != gamestate.tick:
         allFinished = false
     if allFinished:
-      gamestate.collisionCheck()
       inc gamestate.activeIndex
       gameState.activeIndex = gameState.activeIndex mod gameState.tanks.len
       gamestate.nextTick()

@@ -1,1 +1,3 @@
 --experimental:"overloadableEnums"
+--mm:orc
+--define:wasm3HasWasi

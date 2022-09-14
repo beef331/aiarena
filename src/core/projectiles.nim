@@ -24,7 +24,7 @@ func getPos*(projectile: Projectile): IVec2 = projectile.pos
 func finishedMoving*(projectile: Projectile): bool = projectile.moveProgress <= 0
 func moveTick*(projectile: Projectile): int = projectile.finishTick
 func nextPos*(projectile: Projectile): IVec2 = projectile.pos + ivec2(projectile.dir.asVec.xz)
-
+func team*(projectile: Projectile): int32 = projectile.teamId
 
 proc move*(projectile: var Projectile, dt: float32, tick: int) =
   ## Moves the projectile and stores tick if finished

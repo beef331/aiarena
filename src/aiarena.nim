@@ -1,7 +1,7 @@
 import truss3D, vmath, wasmedge, opengl
 import truss3D/[inputs, shaders, models, instancemodels]
 import std/[os, times, enumerate]
-import core/[resources, gamestates]
+import core/[resources, gamestates, wasmenvs]
 
 shaderPath = "assets/shaders"
 modelPath = "assets/models"
@@ -9,7 +9,6 @@ modelPath = "assets/models"
 addEvent(KeyCodeQ, pressed, epHigh) do(keyEvent: var KeyEvent, dt: float):
   echo "buh bye"
   quitTruss()
-
 
 var
   view, proj: Mat4
@@ -33,3 +32,4 @@ proc draw() =
 
 
 initTruss("Hello", ivec2(1280, 720), init, update, draw)
+

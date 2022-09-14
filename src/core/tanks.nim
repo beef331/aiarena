@@ -19,18 +19,19 @@ type
     teamId: int32
   TankRender* = seq[TankRenderData]
 
-  Tank* {.pure, inheritable.} = object
+  Tank* {.pure, inheritable, packed.} = object
     pos: Ivec2
     dir: Direction
     teamId*: int32
     health: int32
     presentInput: Input
+    userData: int32
 
   NativeTank* = object of Tank
     moveProgress*: float32 # When this is >= 1 we've reached target move to it
 
 func init*(_: typedesc[NativeTank], pos: IVec2, dir: Direction, teamId: int): NativeTank =
-  NativeTank(pos: pos, dir: dir, teamId: teamId)
+  NativeTank(pos: pos, dir: dir, teamId: teamId, health: 3)
 
 proc targetPos*(tank: Tank): IVec2 =
   ## Returns where the tank will shoot or move to
