@@ -18,6 +18,6 @@ else:
 --noMain:on
 let outputName = projectName() & ".wasm"
 # Pass this to Emscripten linker to generate html file scaffold for us.
-switch("passC", "-mmultivalue -Xclang -target-abi -Xclang experimental-mv")
+#switch("passC", "-mmultivalue -Xclang -target-abi -Xclang experimental-mv")
 switch("passL", "--no-entry -sSTANDALONE_WASM=1 -sERROR_ON_UNDEFINED_SYMBOLS=0") # No need for main, it's standalone wasm, and we dont need to error on undefined as we're probably importing
 switch("passL", "-o " & outputName)

@@ -1,6 +1,6 @@
 import wasm3, vmath
 import wasm3/wasm3c
-import std/[os, times, sequtils]
+import std/[os, times, sequtils, strformat]
 import worlds, tanks, projectiles
 
 type
@@ -13,11 +13,11 @@ type
     tankData: WasmSeq[Tank] # Heap allocated sequencve inside the runtime
     worldSize: uint32 # pointer to a `(uint32, uint32)`
     activeTank: uint32 # pointer to a tank
-    tankCount: PGlobal
     path: string # Path to watch
     lastModified: Time
     wasmEnv: WasmEnv
   MissingProcError = object of CatchableError
+  SizeMismatchError = object of CatchableError
 
 
 proc loadWasm*(path: string, hostProcs: openarray[WasmHostProc]): AiEnv =
@@ -27,16 +27,20 @@ proc loadWasm*(path: string, hostProcs: openarray[WasmHostProc]): AiEnv =
     result.wasmEnv = loadWasmEnv(readFile(path), hostProcs = hostProcs)
     result.allocFunc = result.wasmEnv.findFunction("allocMem", [I32], [I32])
     result.deallocFunc = result.wasmEnv.findFunction("deallocMem", [I32], [])
-    result.inputFunc = result.wasmEnv.findFunction("getInput", [I32, I32, I32], [I32])
-    result.activeTank = cast[uint32](result.allocFunc.call(int32, sizeof(Tank)))
-    result.tankCount = result.wasmEnv.findGlobal("tankCount")
-    var
-      worldSize = result.wasmEnv.findGlobal("worldSize")
-      newWorldSize = Wasmval(kind: I32)
-    result.worldSize = cast[uint32](result.allocFunc.call(int32, int32 sizeof((int32, int32))))
-    newWorldSize.i32 = cast[int32](result.worldSize)
-    echo worldSize.m3SetGlobal(addr newWorldSize)
+    result.inputFunc = result.wasmEnv.findFunction("getInput", [I32, I32, I32, I32, I32], [I32])
+    let
+      getTileSize = result.wasmEnv.findFunction("getTileSize", [], [I32])
+      getTankSize = result.wasmEnv.findFunction("getTankSize", [], [I32])
+      tileSize = getTileSize.call(int32)
+      tankSize = getTankSize.call(int32)
+    if tileSize != int32(sizeof(Tile)):
+      raise newException(SizeMismatchError, fmt"'Tile' size is '{tileSize}', but should be '{sizeof(Tile)}'.")
 
+    if tankSize != int32(sizeof(Tank)):
+      raise newException(SizeMismatchError, fmt"'Tank' size is '{tankSize}', but should be '{sizeof(Tank)}'.")
+
+    result.activeTank = cast[uint32](result.allocFunc.call(int32, sizeof(Tank)))
+    result.worldSize = cast[uint32](result.allocFunc.call(int32, sizeof((int32, int32))))
 
   except OsError as e:
     echo e.msg
@@ -60,5 +64,5 @@ proc getInput*(env: var AiEnv, activeTank: Tank, tanks: seq[Tank], world: World,
   env.updateData(tanks)
   env.updateData(world.data)
   env.wasmEnv.setMem((world.size.x, world.size.y), env.worldSize)
-  result = Input(env.inputFunc.call(int32, env.activeTank, 0i32, 0i32))
-  echo result
+
+  result = Input(env.inputFunc.call(int32, env.activeTank, env.tankData.data, int32 tanks.len , env.tileData.data, env.worldSize))

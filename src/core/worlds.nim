@@ -11,10 +11,10 @@ type
     floor
     controlPoint # For area control game modes, last team changes the colour of the tile
 
-  Tile* = object
+  Tile* {.packed.} = object
     occupied*: bool
     kind*: TileKind
-    teamId*: int
+    teamId*: int32
 
   World* = object
     size*: IVec2
