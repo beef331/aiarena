@@ -59,10 +59,12 @@ proc updateData*(env: var AiEnv, tanks: seq[Tank]) =
   env.tankData.len = uint32 tanks.len
   env.wasmEnv.copyMem(env.tankData.data, tanks[0].unsafeAddr, tanks.len * sizeof(Tank))
 
-proc getInput*(env: var AiEnv, activeTank: Tank, tanks: seq[Tank], world: World, projectile: seq[Projectile]): Input =
+proc getInput*(env: var AiEnv, activeTank: var Tank, tanks: seq[Tank], world: World, projectile: seq[Projectile]): Input =
   env.wasmEnv.setMem(activeTank, env.activeTank)
   env.updateData(tanks)
   env.updateData(world.data)
   env.wasmEnv.setMem((world.size.x, world.size.y), env.worldSize)
 
   result = Input(env.inputFunc.call(int32, env.activeTank, env.tankData.data, int32 tanks.len , env.tileData.data, env.worldSize))
+  let tankData = env.wasmEnv.getFromMem(Tank, env.activeTank)
+  activeTank.userData = tankData.userData

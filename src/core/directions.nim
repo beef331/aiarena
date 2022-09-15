@@ -28,15 +28,20 @@ proc asRot*(dir: Direction): float32 =
   of west:
     Tau / 4
 
+proc nextVal*(dir: Direction): Direction =
+  if dir == Direction.high:
+    Direction.low
+  else:
+    succ(dir)
+
+proc prevVal*(dir: Direction): Direction =
+  if dir == Direction.low:
+    Direction.high
+  else:
+    pred(dir)
 
 proc setToNext*(dir: var Direction) =
-  if dir == Direction.high:
-    dir = Direction.low
-  else:
-    dir = succ(dir)
+  dir = nextVal(dir)
 
 proc setToPred*(dir: var Direction) =
-  if dir == Direction.low:
-    dir = dir.high
-  else:
-    dir = pred(dir)
+  dir = prevVal(dir)

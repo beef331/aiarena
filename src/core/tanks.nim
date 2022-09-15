@@ -25,7 +25,7 @@ type
     teamId*: int32
     health: int32
     presentInput: Input
-    userData: int32
+    userData*: int32
 
   NativeTank* = object of Tank
     moveProgress*: float32 # When this is >= 1 we've reached target move to it

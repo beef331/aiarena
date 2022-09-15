@@ -158,6 +158,9 @@ func nextTick*(gamestate: GameState) =
   gamestate.collisionCheck() # End of turn check collisions
 
 proc update*(gameState: GameState, dt: float32) =
+  if KeyCodeP.isPressed:
+    gameState.inputs[0].wasmEnv = loadWasm("testai.wasm", [])
+
   case gamestate.controller
   of projectile:
     var allFinished = true
