@@ -24,11 +24,13 @@ type
     dir: Direction
     teamId*: int32
     health: int32
-    presentInput: Input
+    id*: int32
     userData*: int32
 
   NativeTank* = object of Tank
     moveProgress*: float32 # When this is >= 1 we've reached target move to it
+    presentInput: Input
+
 
 func init*(_: typedesc[NativeTank], pos: IVec2, dir: Direction, teamId: int): NativeTank =
   NativeTank(pos: pos, dir: dir, teamId: teamId, health: 3)
@@ -66,9 +68,9 @@ func move*(tank: var NativeTank, dt: float32, onFinishedMoving: proc()) =
     of moveForward:
       tank.pos += ivec2(tank.dir.asVec.xz)
     of turnLeft:
-      tank.dir.setToNext()
-    of turnRight:
       tank.dir.setToPred()
+    of turnRight:
+      tank.dir.setToNext()
     of nothing, fire:
       discard
     tank.input nothing

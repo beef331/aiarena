@@ -33,6 +33,7 @@ type
     inputs: seq[GameInput]
     gotInput: bool
     tick: int
+    tankIdCounter: int32
 
 func activeInputInd*(gameState: GameState): var int =
   gameState.inputIds[gamestate.activeIndex]
@@ -46,6 +47,8 @@ func activeInput*(gameState: GameState): var GameInput=
 proc addTank(gameState: GameState, tank: sink NativeTank, inputId: int) =
   gamestate.world[tank.getPos].occupied = true
   gamestate.world[tank.getPos].teamId = tank.teamId
+  tank.id = gameState.tankIdCounter
+  inc gameState.tankIdCounter
   gamestate.tanks.add tank
   gamestate.inputIds.add inputID
 
@@ -57,8 +60,11 @@ proc init*(_: typedesc[GameState], width, height: int): GameState =
   result = GameState()
   result.world = testWorld(width, height)
   result.inputs.add GameInput(inputDevice: Scripted, wasmEnv: loadWasm("testai.wasm", []))
-  result.addTank(NativeTank.init(ivec2(0), east, 1), 0)
-  result.addTank(NativeTank.init(ivec2(9, 0), west, 2), 0)
+  result.addTank(NativeTank.init(ivec2(3, 0), west, 1), 0)
+  result.addTank(NativeTank.init(ivec2(5, 3), west, 1), 0)
+
+  result.addTank(NativeTank.init(ivec2(9, 9), east, 2), 0)
+  result.addTank(NativeTank.init(ivec2(6, 7), south, 2), 0)
   #result.addTank(NativeTank.init(ivec2(3, 0), west, 2), 0)
   #result.addTank(NativeTank.init(ivec2(4, 0), west, 3), 0)
 

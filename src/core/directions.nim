@@ -10,22 +10,22 @@ proc asVec*(dir: Direction): Vec3 =
   case dir
   of north:
     vec3(0, 0, 1)
-  of east:
+  of west:
     vec3(1, 0, 0)
   of south:
     vec3(0, 0, -1)
-  of west:
+  of east:
     vec3(-1, 0, 0)
 
 proc asRot*(dir: Direction): float32 =
   case dir
   of north:
     0f
-  of east:
+  of west:
     Tau * 0.75
   of south:
     Tau / 2
-  of west:
+  of east:
     Tau / 4
 
 proc nextVal*(dir: Direction): Direction =

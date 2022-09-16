@@ -1,6 +1,7 @@
 import wasm3/exporter
 import vmath
 import ../src/core/directions
+import std/options
 
 
 type
@@ -27,7 +28,7 @@ type
     dir: Direction
     teamId: int32
     health: int32
-    presentInput: Input
+    id: int32
     data: UserData
 
 proc getTileSize(): int32 {.wasmexport.} = int32 sizeof(Tile)
@@ -42,6 +43,63 @@ proc isOccupied(pos, size: Ivec2, tiles: ptr UncheckedArray[Tile]): bool =
   else:
     true
 
+proc findClosestEnemy(tank: Tank, activeTanks: openArray[Tank]): Option[Tank] =
+  var closest = float32.high
+  for otherTank in activeTanks:
+    if otherTank.teamId != tank.teamId:
+      let dist = otherTank.pos.vec2.distSq(tank.pos.vec2)
+      if closest > dist:
+        closest = dist
+        result = some(otherTank)
+
+proc getInput(dir: Direction, target: IVec2): Input =
+  if target.y == 0:
+    case dir
+    of north:
+      if target.x < 0:
+        turnLeft
+      else:
+        turnRight
+    of east:
+      if target.x < 0:
+        turnLeft
+      else:
+        fire
+    of south:
+      if target.x < 0:
+        turnRight
+      else:
+        turnLeft
+    of west:
+      if target.x < 0:
+        fire
+      else:
+        turnRight
+  elif target.x == 0:
+    case dir
+    of north:
+      if target.y < 0:
+        turnLeft
+      else:
+        fire
+    of east:
+      if target.y < 0:
+        turnRight
+      else:
+        turnLeft
+    of south:
+      if target.y < 0:
+        fire
+      else:
+        turnLeft
+    of west:
+      if target.y < 0:
+        fire
+      else:
+        turnRight
+  else:
+    moveForward
+
 proc getInput(activeTank: ptr Tank, activeTanks: ptr UncheckedArray[Tank], tankCount: int32, tiles: ptr UncheckedArray[Tile], worldSize: ptr IVec2): Input {.wasmexport.} =
   let
     forwardPos = activeTank.pos + ivec2(activeTank.dir.asVec.xz)
@@ -50,25 +108,21 @@ proc getInput(activeTank: ptr Tank, activeTanks: ptr UncheckedArray[Tank], tankC
     isForwardOccupied = forwardPos.isOccupied(worldSize[], tiles)
     isRightOccupied = rightPos.isOccupied(worldSize[], tiles)
     isLeftOccupied = leftPos.isOccupied(worldSize[], tiles)
+
   if activeTank.data == nil:
     activeTank.data = UserData()
-    let target = block:
-      var a = -1
-      for i, x in activeTanks.toOpenArray(0, tankCount - 1):
-        if x.pos != activeTank.pos:
-          a = i
-          break
-      a
-    activeTank.data.target = target
 
-  if not isForwardOccupied:
-    turnRight
-  elif not isRightOccupied:
-    turnRight
-  elif not isLeftOccupied:
-    turnRight
-  else:
-    fire
+  let closestEnemy = activeTank[].findClosestEnemy(activeTanks.toOpenArray(0, tankCount - 1))
+  if closestEnemy.isSome:
+    let
+      targetPos = closestEnemy.get.pos
+      delta = targetPos - activeTank.pos
+    result = activeTank.dir.getInput(delta)
+
+
+    #if abs(delta.x) < abs(delta.y): # This is dumb we need pathfinding, for flat square map this works
+
+
 
 
 
